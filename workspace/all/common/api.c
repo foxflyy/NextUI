@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -2706,6 +2707,17 @@ void SND_quit(void)
 
 void SND_resetAudio(double sample_rate, double frame_rate)
 {
+	// Reset resampler state to avoid discontinuity after audio reset
+	resetSrcState = 1;
+	
+	// Clear rolling average history to prevent stale pre-sleep data from affecting
+	// post-resume timing. This fixes the delayed audio stutter (~2 seconds after resume)
+	// that occurs when the 120-sample window transitions from stale to new data.
+	memset(adjustment_history, 0, sizeof(adjustment_history));
+	adjustment_index = 0;
+	memset(remaining_space_history, 0, sizeof(remaining_space_history));
+	remaining_space_index = 0;
+	
 	SND_quit();
 	SND_init(sample_rate, frame_rate);
 }
